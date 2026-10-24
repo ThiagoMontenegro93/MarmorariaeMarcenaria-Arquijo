@@ -1,6 +1,6 @@
 # Arquitetura — Sistema Arquijo Marmoraria e Marcenaria
 
-> Documento NEXUS · MVP Fase 1 · versão 0.1.0 · outubro/2026
+> Documento NEXUS · MVP Fase 2 · versão 0.2.0 · outubro/2026
 > Fonte dos requisitos: *Prompt Mestre Consolidado v4.0* (RF01–RF24, RNF01–RNF07).
 
 ## 1. Objetivo
@@ -21,7 +21,7 @@ Sistema ponta a ponta para uma marcenaria e marmoraria de móveis planejados no 
 1. Equipe interna pequena (até ~15 usuários), uma única empresa (sem multi-tenant no MVP).
 2. WhatsApp na Fase 1 é por link `wa.me` (o atendente clica e envia); envio automático só com a Business API (Fase 2).
 3. Valores em reais com 2 casas; medidas em milímetros; fuso `America/Sao_Paulo`.
-4. Fotos ficam como URLs (campos `String[]`); upload para S3 entra na Fase 2.
+4. Fotos do catálogo/portfólio ficam como URLs (campos `String[]`); fotos de medição usam a interface `Armazenamento` (disco local hoje, S3 quando implementado).
 5. O cálculo de chapas é uma **previsão**: não baixa o estoque automaticamente (a baixa é um ajuste explícito em `POST /chapas/:id/estoque`).
 
 ### Perguntas a validar com o cliente
@@ -49,35 +49,35 @@ Implementação: três guards globais em ordem — `ThrottlerGuard` → `JwtAuth
 | RF01 | Cadastro de chapas com tamanho fixo e estoque | `chapas` · `GET/POST/PATCH/DELETE /chapas`, `POST /chapas/:id/estoque` | ✅ |
 | RF02 | Peças do projeto (L×A×Qtd, material, veio) | `projetos` · `POST /projetos`, `PUT /projetos/:id/pecas` | ✅ |
 | RF03 | Cálculo de chapas com aproveitamento e desperdício | `@arquijo/calc` + `POST /projetos/:id/calcular` | ✅ |
-| RF04 | Plano de corte 2D por chapa | resposta de `/calcular` (`planos[].pecas[x,y,largura,altura]`, `sobras`) | ✅ dados · ⏳ desenho (web) |
+| RF04 | Plano de corte 2D por chapa | resposta de `/calcular` (`planos[].pecas[x,y,largura,altura]`, `sobras`) | ✅ dados + desenho SVG em `/app/projetos/:id` |
 | RF05 | Prévia de gasto (MDF + fita + ferragens + mão de obra + margem) | `calcularPreviaCusto` + `/calcular` (`previa`) | ✅ |
 | RF06 | Lista de compra vs estoque | `/calcular` (`listaCompra`, `qtdDoEstoque`, `qtdCompra`) | ✅ |
 | RF07 | Coleções Essencial/Moderna/Premium | `GET /catalogo/colecoes[/:slug]` + seed | ✅ |
 | RF08 | Modelos por ambiente com fotos e preço | `GET /catalogo/modelos[/:slug]` (+ link "Quero este modelo") | ✅ (fotos: URLs) |
 | RF09 | Quiz de sugestão | `POST /catalogo/quiz` (`dominio/quiz.ts`) | ✅ API |
 | RF10 | Combos prontos | `GET /catalogo/combos` + seed (3 combos) | ✅ |
-| RF11 | OS com 9 status e Kanban | `GET /ordens-servico/kanban`, `PATCH /ordens-servico/:id/avancar` | ✅ API · ⏳ tela |
+| RF11 | OS com 9 status e Kanban | `GET /ordens-servico/kanban`, `PATCH /ordens-servico/:id/avancar`; tela `/app/os` | ✅ |
 | RF12 | Prioridade com cor | enum `PrioridadeOS`; cor no front | ✅ |
 | RF13 | Prazo acordado, prazo real, atraso | `prazoAcordado`, `prazoReal` (setado ao entrar em ENTREGA), `atrasoDias` | ✅ |
-| RF14 | Timeline da OS | `GET /ordens-servico/:id` → `timeline[]` com horas por etapa (HistoricoEtapa) | ✅ API |
+| RF14 | Timeline da OS | `GET /ordens-servico/:id` → `timeline[]` com horas por etapa (HistoricoEtapa); tela `/app/os/:id` | ✅ |
 | RF15 | Financeiro por OS, entrada 50% e saldo | `pagamentos` · `POST /pagamentos/plano-padrao/:osId`, `PATCH /pagamentos/:id/confirmar` | ✅ |
-| RF16 | Dashboard funil ponta a ponta | `GET /dashboard/funil` | ✅ API |
-| RF17 | Gantt de prazos por prioridade | `GET /ordens-servico/gantt` | ✅ API · ⏳ tela |
+| RF16 | Dashboard funil ponta a ponta | `GET /dashboard/funil`; tela `/app` | ✅ |
+| RF17 | Gantt de prazos por prioridade | `GET /ordens-servico/gantt` | ✅ API · ⏳ tela (Kanban mostra prazo/atraso) |
 | RF18 | Fluxo de caixa (recebido, a receber, atraso) | `GET /dashboard/fluxo-caixa` | ✅ |
 | RF19 | WhatsApp em todo o sistema | `POST /whatsapp/link` (contextual), `GET /whatsapp/oficial`, botão flutuante no site | ✅ |
 | RF20 | Histórico WhatsApp por OS | `MensagemWhatsapp` + `GET /whatsapp/historico?ordemServicoId=` | ✅ |
 | RF21 | Portfólio "Como fiz" em 6 etapas | `ObraPortfolio.etapas` + `GET /catalogo/obras[/:slug]` | ✅ API (CRUD interno: Fase 2) |
-| RF22 | Prospecção B2B (formulário, calculadora, CRM, proposta PDF) | `POST /leads-b2b`, `POST /leads-b2b/simular`, `GET /leads-b2b/kanban`, `PATCH /leads-b2b/:id/status` | ✅ (PDF: Fase 2) |
+| RF22 | Prospecção B2B (formulário, calculadora, CRM, proposta PDF) | `POST /leads-b2b`, `POST /leads-b2b/simular`, `GET /leads-b2b/kanban`, `PATCH /leads-b2b/:id/status`, `GET /pdf/leads-b2b/:id/proposta`; tela `/app/leads` | ✅ |
 | RF23 | Google Maps e Place ID | `GET /catalogo/empresa`, página `/contato` com links Maps/rota | ✅ links · ⏳ mapa embarcado |
-| RF24 | Exportação PDF (orçamento, OS, proposta, lista de compra) | — | ⏳ Fase 2 |
+| RF24 | Exportação PDF (orçamento, OS, proposta, lista de compra) | `GET /pdf/projetos/:id/orcamento`, `/pdf/projetos/:id/lista-compra`, `/pdf/ordens-servico/:id`, `/pdf/leads-b2b/:id/proposta` (pdfkit, marca e contatos em todas as páginas) + botões nas telas | ✅ (CSV/financeiro: Fase 3) |
 
 ## 4. Requisitos não funcionais
 
 | RNF | Meta | Como é atendido | Evidência |
 |---|---|---|---|
 | RNF01 | Cálculo < 2s para 50 peças | Algoritmo O(n·r) em memória, sem I/O; teste automatizado | Teste "50 peças em menos de 2s" (Vitest); chamada real ao endpoint: 1,5 ms de cálculo |
-| RNF02 | Plano de corte visual < 1s | Coordenadas prontas no JSON; front só desenha SVG | ⏳ medir quando a tela existir |
-| RNF03 | PWA offline para medição | Fase 2: service worker + IndexedDB, sincronização ao reconectar | ⏳ |
+| RNF02 | Plano de corte visual < 1s | Coordenadas prontas no JSON; front só desenha SVG | ✅ e2e: clicar "Calcular" → API → 2 planos SVG desenhados em 414 ms (local) |
+| RNF03 | PWA offline para medição | Manifest + service worker (`public/sw.js`), tela `/app/medicao`, fila em IndexedDB, `POST /ordens-servico/:id/medicoes` idempotente por `idLocal`, fotos em `Armazenamento` (local; S3 pronto na interface) | ✅ e2e Playwright: `setOffline(true)` → tela servida pelo SW → medição + foto salvas no IndexedDB → online → sincronizada (contagem na API 0 → 1) |
 | RNF04 | WhatsApp < 5s | Link `wa.me` gerado localmente (ms); Business API com fila na Fase 2 | ✅ |
 | RNF05 | 100 projetos simultâneos | API stateless (JWT), índices em status/prazo/cliente, pool do Prisma; escala horizontal no Railway/Render | ⏳ teste de carga (k6) |
 | RNF06 | LGPD | Consentimento com data/origem, anonimização na exclusão, auditoria, mínimo de dados no lead, CORS restrito | ✅ |
@@ -92,11 +92,14 @@ flowchart LR
   end
   subgraph Web[apps/web · Next.js 15]
     P[Páginas públicas<br/>/ · /colecoes · /empresas · /contato]
-    A[Área /app<br/>dashboard · OS · chapas]
+    L[/login + route handlers<br/>/api/auth/* · /api/proxy/*<br/>cookie httpOnly]
+    A[Área /app protegida por middleware<br/>dashboard · OS · projetos · chapas · leads · medição]
+    SW[Service worker + IndexedDB<br/>medição offline]
   end
   subgraph API[apps/api · NestJS 11]
     G[Guards: rate limit → JWT → perfil]
-    M[Módulos: auth · clientes · chapas · projetos<br/>ordens-servico · pagamentos · catalogo<br/>leads-b2b · dashboard · whatsapp · saude]
+    M[Módulos: auth · clientes · chapas · projetos<br/>ordens-servico · pagamentos · catalogo<br/>leads-b2b · dashboard · whatsapp · saude<br/>pdf · medicoes]
+    AR[Armazenamento<br/>local · S3]
     D[dominio/: regras puras testadas]
     AU[AuditService]
   end
@@ -104,9 +107,12 @@ flowchart LR
   DB[(PostgreSQL 16)]
   WA[wa.me / WhatsApp Business API]
   GM[Google Maps]
-  B --> P & A
+  B --> P & L & A
+  A <--> SW
   P -- fetch ISR / POST lead --> G
-  A -- Bearer JWT --> G
+  L -- POST /auth/login --> G
+  A -- proxy servidor: Bearer JWT do cookie --> G
+  M --> AR
   G --> M --> D
   M --> C
   M -- Prisma --> DB
@@ -123,6 +129,11 @@ arquijo/
 ├─ apps/api/             NestJS + Prisma (schema, migrações, seed) + testes de domínio
 │  └─ src/{common,config,dominio,modulos,prisma}
 ├─ apps/web/             Next.js 15 App Router + React 19 + Tailwind
+│  ├─ app/(site)/        páginas públicas · app/login · app/app/* (área interna)
+│  ├─ app/api/           route handlers: auth/login, auth/logout, proxy/[...caminho]
+│  ├─ lib/               sessão, permissões por perfil, fila offline, IndexedDB
+│  └─ public/sw.js       service worker (PWA)
+├─ e2e/                  Playwright: telas.cjs e medicao-offline.cjs
 ├─ docs/arquitetura.md   este documento
 ├─ docker-compose.yml    postgres + api + web
 └─ .env.example          placeholders (SECRET_KEY_AQUI, DB_PASSWORD, TOKEN_AQUI...)
@@ -132,6 +143,9 @@ Decisões-chave:
 - **Motor de cálculo isolado e puro**: testável sem banco, reutilizável no navegador/PWA offline (RNF03) e em worker (PQueue) se necessário.
 - **Regras de negócio puras em `apps/api/src/dominio`** (fluxo de OS, atraso, status financeiro, WhatsApp, CNPJ, quiz, B2B, funil, fluxo de caixa): testadas com Vitest; serviços Nest só orquestram I/O.
 - **Snapshot do cálculo** salvo em `Projeto.resultadoCalculo` e em `OrdemServico.materiais` — a OS guarda os materiais do momento da criação, mesmo que a cut list mude depois.
+- **Token nunca chega ao JavaScript do navegador**: o login passa por um route handler do Next que grava o JWT em cookie httpOnly; as telas chamam `/api/proxy/*`, que injeta o `Bearer` no servidor. Os menus por perfil (`lib/permissoes.ts`) espelham os `@Perfis()` da API, e a API continua sendo a autoridade (403).
+- **Medição offline com fila idempotente**: cada medição ganha um `idLocal` (UUID) no celular; reenvios devolvem `duplicada: true` em vez de duplicar.
+- **PDF gerado no servidor** (pdfkit, funções puras em `src/pdf/geradores.ts`) → mesmo layout para qualquer dispositivo e testável sem navegador.
 - **Avanço de etapa com update condicional** (`WHERE id AND status = atual`) dentro de transação → sem avanço duplo concorrente.
 
 ### Algoritmo de chapas (resumo)
@@ -157,6 +171,8 @@ erDiagram
   OrdemServico ||--o{ HistoricoEtapa : timeline
   OrdemServico ||--o{ Pagamento : financeiro
   OrdemServico ||--o{ MensagemWhatsapp : histórico
+  OrdemServico ||--o{ Medicao : "medição na obra"
+  Usuario ||--o{ Medicao : registra
   Cliente ||--o{ MensagemWhatsapp : ""
   LeadB2B ||--o{ MensagemWhatsapp : ""
   Colecao ||--o{ Modelo : agrupa
@@ -178,9 +194,10 @@ erDiagram
 | Colecao / Modelo / Combo / ComboItem | catálogo público; preço `null` = sob consulta | `slug` único | `ativo` |
 | LeadB2B | tipo, nomeEmpresa, cnpj (dígitos), responsável, whatsapp, unidades, prazo, bairro, orçamento, precisaMedicao, status CRM, consentimentoLgpd | `status`, `cnpj`, `criadoEm` | sim |
 | ObraPortfolio | título, bairro, tipoCliente, desafio, solução, materiais[], etapas (6, JSON), fotos[], depoimento, publicado | `slug` único, `publicado`, `tipoCliente` | sim |
+| Medicao | idLocal (UUID do celular, único), ordemServicoId, usuarioId, ambiente, paredes (JSON: nome, larguraMm, alturaMm), observacoes, fotos[] (chaves do armazenamento), medidoEm, criadoEm | `idLocal` único, (`ordemServicoId`,`medidoEm`) | — |
 | AuditLog | usuarioId, ação, entidade, entidadeId, dados (JSON), ip, userAgent | (`entidade`,`entidadeId`), (`usuarioId`,`criadoEm`), `criadoEm` | nunca apaga |
 
-Migrações versionadas em `apps/api/prisma/migrations` (`inicial` + `os_numero_inicia_101`). Seed idempotente: 3 coleções, 8 modelos, 3 combos, 6 chapas, 1 obra de portfólio, admin (+ demo opcional com a cut list do PDF).
+Migrações versionadas em `apps/api/prisma/migrations` (`inicial`, `os_numero_inicia_101`, `medicoes_obra`). Seed idempotente: 3 coleções, 8 modelos, 3 combos, 6 chapas, 1 obra de portfólio, admin (+ demo opcional com `SEED_DEMO=true`: usuários gestor/marceneiro/comercial, 2 clientes, projeto com a cut list do PDF, OS-101/102/103 em etapas diferentes com pagamentos e 1 lead B2B).
 
 ## 7. Endpoints (REST, JSON, Swagger em `/docs`)
 
@@ -218,6 +235,14 @@ Público = sem JWT. Demais exigem `Authorization: Bearer <token>`.
 | `GET /whatsapp/oficial` | público | Link oficial |
 | `POST /whatsapp/link` | todos | Link `wa.me` contextual (OS, cliente, lead, projeto, livre) + log |
 | `GET /whatsapp/historico` | todos | Histórico por OS/cliente/lead |
+| `GET /pdf/projetos/:id/orcamento` · `/pdf/projetos/:id/lista-compra` | GESTOR, COMERCIAL, MARCENEIRO | PDF do orçamento · lista de compra |
+| `GET /pdf/ordens-servico/:id` | todos | PDF da OS (etapas, materiais, financeiro) |
+| `GET /pdf/leads-b2b/:id/proposta?valorUnitario=` | GESTOR, COMERCIAL | Proposta comercial B2B (auditada) |
+| `POST /ordens-servico/:id/medicoes` | GESTOR, COMERCIAL, MARCENEIRO | Multipart: `dados` (JSON validado) + até 6 `fotos` (JPEG/PNG/WebP, 5 MB); idempotente por `idLocal` |
+| `GET /ordens-servico/:id/medicoes` | idem | Medições da OS |
+| `GET /arquivos/:pasta/:nome` | idem | Foto armazenada (chave validada por regex) |
+
+**Route handlers do Next (mesma origem do site):** `POST /api/auth/login` (grava cookie `arquijo_sessao` httpOnly, SameSite=Strict, Secure em produção), `POST /api/auth/logout`, `GET/POST/PATCH/PUT/DELETE /api/proxy/*` (repassa à API com o Bearer do cookie; streams de PDF incluídos).
 
 Erros: 400 validação (class-validator, `whitelist` + `forbidNonWhitelisted`), 401 sem token, 403 perfil, 404, 409 conflito de etapa, 422 erro do motor de cálculo, 429 rate limit.
 
@@ -231,11 +256,14 @@ Erros: 400 validação (class-validator, `whitelist` + `forbidNonWhitelisted`), 
 | Força bruta / abuso | Rate limit global 120/min; login 5/min; lead 5/10 min; honeypot no formulário |
 | Injeção | Prisma (consultas parametrizadas); nenhuma SQL concatenada |
 | XSS | React escapa por padrão; API só JSON; `helmet` (CSP, HSTS, noSniff...) e cabeçalhos de segurança no Next |
-| CSRF | API stateless com Bearer token (sem cookie de sessão). Ao migrar o token para cookie httpOnly no front, usar `SameSite=Strict` + token anti-CSRF |
+| Sessão web | JWT em cookie httpOnly `arquijo_sessao` (SameSite=Strict, Secure em produção, expira com o token); nada em `localStorage`; middleware protege `/app/*` e redireciona para `/login` (parâmetro `proximo` aceita só caminhos `/app`) |
+| CSRF | API com Bearer token (sem cookie). No Next, cookie `SameSite=Strict` + verificação do cabeçalho `Origin` em todo método de escrita dos route handlers |
+| Uploads (fotos) | Tipo MIME na lista branca **e** conferência dos *magic bytes*; 5 MB por foto, 6 por medição; nome gerado (UUID), nunca o do usuário; leitura só por chave validada por regex e caminho resolvido dentro de `UPLOAD_DIR` |
+| PWA | Service worker nunca guarda respostas de `/api/*`; logout limpa o cache do SW e o cache do IndexedDB |
 | Validação | DTOs com class-validator em todas as entradas; corpo limitado a 1 MB; UUIDs validados em parâmetros |
 | CORS | Lista de origens por variável `CORS_ORIGINS` |
 | Segredos | Somente via variáveis de ambiente; `.env` no `.gitignore`; `.env.example` com placeholders |
-| Auditoria | `AuditLog` em login (sucesso/falha), usuário, cliente (criação, consentimento, anonimização), chapa (cadastro, estoque), projeto (cálculo), OS (criar, editar, avançar, remover), pagamentos, leads, WhatsApp de OS |
+| Auditoria | `AuditLog` em login (sucesso/falha), usuário, cliente (criação, consentimento, anonimização), chapa (cadastro, estoque), projeto (cálculo), OS (criar, editar, avançar, remover), pagamentos, leads, WhatsApp de OS, proposta B2B em PDF, medições |
 | Containers | Usuário não-root (`node`), Postgres exposto só em 127.0.0.1 |
 
 **LGPD (RNF06):**
@@ -251,7 +279,7 @@ Erros: 400 validação (class-validator, `whitelist` + `forbidNonWhitelisted`), 
 |---|---|---|---|---|
 | **WhatsApp** | `wa.me/<número>?text=<encodeURIComponent>` gerado pela API (`LinkWaMeProvider`) com mensagem contextual e log em `MensagemWhatsapp`; botão flutuante no site | `BusinessApiProvider` (Cloud API da Meta): templates aprovados, fila com retentativa exponencial, webhook de status/recebidas, idempotência por id da mensagem | Token de sistema (`WHATSAPP_API_TOKEN`) + `WHATSAPP_PHONE_NUMBER_ID` | Sem credencial → 503 claro; volta para link `wa.me` |
 | **Google Meu Negócio / Maps** | Links oficiais (perfil, busca por coordenadas, rota) e Place ID em `/contato` e `GET /catalogo/empresa` | Mapa embarcado/estático com `GOOGLE_MAPS_API_KEY` restrita por domínio; nota/estrelas via Places API | API key restrita | Sem chave → mantém links |
-| **S3 (fotos)** | URLs em `String[]` | Upload com URL pré-assinada, bucket privado + CDN | IAM com menor privilégio | — |
+| **S3 (fotos)** | Interface `Armazenamento` com `ArmazenamentoLocal` (disco, volume Docker) e `ArmazenamentoS3` (stub) escolhidos por `STORAGE_PROVIDER` | Implementar o S3 com SDK, bucket privado + URL pré-assinada | IAM com menor privilégio | Provider `s3` ainda é stub: o upload falha com mensagem clara pedindo `STORAGE_PROVIDER=local` |
 
 Troca de provedor WhatsApp só por variável (`WHATSAPP_PROVIDER=link|business_api`), sem mudar código dos módulos.
 
@@ -295,8 +323,10 @@ Justificativa: Nest dá módulos, DI, guards e Swagger prontos para um domínio 
 | Novas vulnerabilidades em dependências | média | alto | Stack atualizada (Next 15.5/React 19, NestJS 11/Express 5) + `overrides`: `npm audit --omit=dev` = 0 em out/2026; Dependabot/Renovate e audit no CI |
 | WhatsApp Business API exige aprovação da Meta e templates | média | médio | Fase 1 funciona 100% com `wa.me`; provider plugável |
 | Dados pessoais vazarem (LGPD) | baixa | alto | RBAC, auditoria, anonimização, HTTPS, backups criptografados |
-| Área interna web ainda sem login/telas | alta | médio | API completa e documentada; prioridade nº 1 da continuação |
-| Fotos reais e conteúdo do portfólio inexistentes | alta | baixo | Campos prontos; carga de conteúdo na Fase 2 |
+| Fotos de medição em disco local se perderem | média | alto | Volume Docker `arquivos_api` + backup; trocar para S3 (`STORAGE_PROVIDER=s3`) antes de produção |
+| Medição offline ficar presa no celular (sem rede por dias, sessão expirada) | média | médio | Fila persistente no IndexedDB, reenvio automático ao reconectar, 401 não descarta a medição; aviso de pendências na tela |
+| Ferramentas de teste/build com alertas (`npm audit` completo: vitest 2/esbuild/tailwind 3) | média | baixo | Só dependências de desenvolvimento (não vão para produção); atualizar para vitest 5 e Tailwind 4 numa tarefa própria |
+| Fotos reais e conteúdo do portfólio inexistentes | alta | baixo | Campos prontos; carga de conteúdo pendente |
 | Dependência de fornecedor único de hospedagem | baixa | médio | Tudo em Docker; migração para VPS/AWS sem mudança de código |
 
 ## 13. Plano de execução por fases
@@ -305,23 +335,23 @@ Justificativa: Nest dá módulos, DI, guards e Swagger prontos para um domínio 
 - ✅ Motor de chapas + prévia de custo com testes
 - ✅ API: auth/RBAC, clientes, chapas, projetos/cálculo, OS (Kanban, etapas, atraso, Gantt), pagamentos, catálogo, B2B, dashboard, WhatsApp link, auditoria, Swagger
 - ✅ Banco com migrações e seed do PDF
-- ✅ Site público (home, coleções, empresas com formulário, contato) e esqueleto `/app`
-- ⏳ Concluir na Fase 1: login no front (cookie httpOnly), telas Kanban de OS, cadastro de chapas e cut list com plano de corte em SVG, dashboard visual; atualização de dependências
+- ✅ Site público (home, coleções, empresas com formulário, contato)
 
 **Fase 2 — Operação completa** (alinhada aos "Próximos passos" do PDF)
-- Unir tudo em site único (domínio `arquijo.com.br`), fotos reais das obras da R. Mupia, upload S3
-- Cálculo integrado à OS no front (já automático na API ao criar OS a partir de projeto)
-- Página `/empresas` divulgada para imobiliárias; proposta comercial B2B em PDF
-- WhatsApp Business API: envio automático de atualização de etapa da OS, webhook de respostas
-- Exportação PDF/CSV (orçamento, OS, lista de compra, relatório financeiro) — RF24
-- PWA do marceneiro: medição offline, fotos, check-in (RNF03); Google Maps embarcado
+- ✅ Dependências atualizadas por segurança (Next 15.5 + React 19, NestJS 11): `npm audit --omit=dev` = 0
+- ✅ Login com cookie httpOnly, middleware, logout e menus por perfil
+- ✅ Telas: dashboard (KPIs, funil, atenção hoje, fluxo de caixa), Kanban de OS (9 etapas, prioridade, atraso) e detalhe (timeline, financeiro, registrar pagamento, avançar etapa, WhatsApp), projetos com cut list + cálculo + plano de corte SVG, chapas, CRM B2B
+- ✅ PDFs RF24: orçamento, OS, proposta B2B, lista de compra
+- ✅ PWA do marceneiro: medição offline com fotos e sincronização (RNF03)
+- ✅ Verificação real com Playwright (2 roteiros, 15 passos)
+- ⏳ Pendente: tela de Gantt, implementação S3, WhatsApp Business API (envio automático e webhook), Google Maps embarcado, fotos reais das obras, domínio `arquijo.com.br`, CSV/relatório financeiro, check-in do marceneiro
 
 **Fase 3 — Escala e inteligência**
 - Otimizador de corte com múltiplas heurísticas/PQueue e reaproveitamento automático de retalhos do estoque
 - Portal B2B com login para construtoras (acompanhamento de obra), multiunidade
 - Avaliações Google no dashboard, métricas de conversão por canal, teste de carga para 100+ projetos simultâneos
 
-## 14. Critérios de aceite (MVP)
+## 14. Critérios de aceite (MVP Fases 1 e 2)
 
 | # | Critério | Como verificar |
 |---|---|---|
@@ -338,3 +368,11 @@ Justificativa: Nest dá módulos, DI, guards e Swagger prontos para um domínio 
 | CA11 | Links WhatsApp usam `encodeURIComponent` e o número oficial 5521984503570 | teste `whatsapp-link` |
 | CA12 | Ações críticas aparecem no `AuditLog` | consulta à tabela |
 | CA13 | Swagger disponível em `/docs`; `prisma validate`, build da API e `next build` sem erros | comandos do README |
+| CA14 | `/app/*` sem sessão redireciona para `/login`; após login o JWT está só em cookie httpOnly (não legível por JS); logout derruba a sessão | `e2e/telas.cjs` |
+| CA15 | Mover OS no Kanban grava a nova etapa; registrar pagamento no detalhe muda o status financeiro para PARCIAL | `e2e/telas.cjs` |
+| CA16 | Calcular chapas na tela desenha um SVG por chapa usada e mostra o valor da prévia | `e2e/telas.cjs` |
+| CA17 | Os 4 PDFs começam com `%PDF`, trazem marca, endereço e WhatsApp em todas as páginas e o conteúdo esperado | `npm test -w @arquijo/api` (pdf.test.ts) + download no e2e |
+| CA18 | MARCENEIRO não vê Dashboard nem Leads no menu (e a API responde 403) | `e2e/telas.cjs` + CA10 |
+| CA19 | Offline: `/app/medicao` abre pelo service worker, medição com foto fica no IndexedDB; ao voltar online sincroniza uma única vez | `e2e/medicao-offline.cjs` |
+| CA20 | Foto com tipo falso (ex.: PDF renomeado) ou acima de 5 MB é recusada (400) | `armazenamento.test.ts` + chamada HTTP |
+| CA21 | `npm audit --omit=dev` sem vulnerabilidades críticas/altas | comando na raiz |

@@ -1,10 +1,13 @@
-# Arquijo Marmoraria e Marcenaria — Sistema (MVP Fase 1)
+# Arquijo Marmoraria e Marcenaria — Sistema (MVP Fase 2)
 
 Sistema de móveis planejados ponta a ponta — do primeiro contato até o recebimento do valor — para a **Arquijo Marmoraria e Marcenaria** (R. Mupia, Rio de Janeiro - RJ, 21220-320 · +55 21 98450-3570 · Seg–Dom 08:00–20:00).
 
 - **Motor de cálculo de chapas** (guilhotina 2D, serra, veio, sobras, estoque vs compra) e prévia de custo do orçamento
 - **API** NestJS + Prisma + PostgreSQL: OS com 9 etapas, prioridade, prazo e atraso; financeiro; catálogo; B2B; dashboard; WhatsApp; auditoria
-- **Site** Next.js 15 + React 19 + Tailwind: home, coleções, página para empresas com formulário, contato com Google Maps e área interna (esqueleto)
+- **Site** Next.js 15 + React 19 + Tailwind: home, coleções, página para empresas com formulário, contato com Google Maps
+- **Área interna** com login (cookie httpOnly) e menus por perfil: dashboard, Kanban de OS e detalhe (timeline, financeiro, WhatsApp), projetos com cut list e plano de corte em SVG, chapas, CRM B2B
+- **PDFs** (orçamento, OS, proposta B2B, lista de compra) gerados na API com a marca e os contatos
+- **PWA do marceneiro**: medição na obra com fotos, funciona offline e sincroniza ao voltar a rede
 
 Documento de arquitetura completo (requisitos, segurança, LGPD, deploy, riscos, critérios de aceite): [`docs/arquitetura.md`](docs/arquitetura.md).
 
@@ -68,17 +71,39 @@ npm run start:dev                             # API em :3001
 npm run dev:web                               # site em :3000
 ```
 
-Login: `POST /auth/login` com `admin@arquijo.com.br` e a senha do seed → use o `accessToken` como `Bearer` (botão *Authorize* no Swagger).
+Acesse `http://localhost:3000/login`. Usuários do seed (todos com a senha de `SEED_ADMIN_SENHA`):
+
+| E-mail | Perfil | Vê |
+|---|---|---|
+| `admin@arquijo.com.br` | ADMIN | tudo |
+| `gestor@arquijo.com.br` (demo) | GESTOR | tudo, inclusive dashboard |
+| `comercial@arquijo.com.br` (demo) | COMERCIAL | OS, projetos, chapas, leads, medição |
+| `marceneiro@arquijo.com.br` (demo) | MARCENEIRO | OS, projetos, chapas, medição |
+
+Na API direta: `POST /auth/login` → use o `accessToken` como `Bearer` (botão *Authorize* no Swagger em `:3001/docs`).
+
+No celular, abra `/app/medicao` uma vez com rede: o service worker guarda a tela e ela passa a abrir offline (medições ficam no aparelho até sincronizar).
 
 ## Testes e verificação
 
 ```bash
-npm test                                      # motor de cálculo + regras de negócio da API (Vitest)
+npm test                                      # motor (20) + API (40, inclui PDFs e uploads) + web (19) — Vitest
 npm run test -w @arquijo/calc                 # só o motor (inclui exemplo do PDF e 50 peças < 2s)
 npm run typecheck -w @arquijo/api             # TypeScript estrito da API
 cd apps/api && npx prisma validate && npx prisma generate
 npm run build                                 # calc + api (nest build) + web (next build)
+npm audit --omit=dev                          # dependências de produção (esperado: 0)
 ```
+
+Testes ponta a ponta (Playwright já instalado no ambiente; navegadores não são baixados pelo projeto). Precisam de banco recém-semeado, API em `:3001` e web em `:3000` (`npm run start -w @arquijo/api` e `npm run start -w @arquijo/web` após o build, com `COOKIE_SECURE=false` em HTTP local):
+
+```bash
+cd apps/api && SEED_ADMIN_SENHA='SenhaLocal123' SEED_DEMO=true npx prisma migrate reset --force && cd ../..
+npm run e2e        # e2e/telas.cjs (login, dashboard, Kanban, pagamento, cálculo, PDF, perfis, logout)
+                   # e2e/medicao-offline.cjs (SW, offline, IndexedDB, foto, sincronização)
+```
+
+Os roteiros usam a senha `SenhaLocal123` (variável `E2E_SENHA` para trocar) e alteram dados (movem a OS-101): rode o reset antes de repetir.
 
 Fluxo manual sugerido (Swagger): login → `GET /projetos` (projeto demo) → `POST /projetos/{id}/calcular` → `POST /ordens-servico` com `projetoId` → `PATCH /ordens-servico/{id}/avancar` → `POST /pagamentos/plano-padrao/{id}` → `PATCH /pagamentos/{id}/confirmar` → `GET /dashboard`.
 
@@ -94,7 +119,11 @@ Fluxo manual sugerido (Swagger): login → `GET /projetos` (projeto demo) → `P
 | `WHATSAPP_PROVIDER` | api | `link` (wa.me, padrão) ou `business_api` (Fase 2) |
 | `WHATSAPP_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | api | Credenciais da WhatsApp Business API (Fase 2) |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_SENHA` | seed | Primeiro administrador (senha obrigatória em produção) |
-| `SEED_DEMO` | seed | `true` cria cliente/projeto de demonstração com a cut list do PDF |
+| `SEED_DEMO` | seed | `true` cria usuários gestor/comercial/marceneiro, clientes, projeto com a cut list do PDF, 3 OS, pagamentos e 1 lead |
+| `STORAGE_PROVIDER` | api | `local` (padrão, disco) ou `s3` (interface pronta, implementação pendente) |
+| `UPLOAD_DIR` | api | Pasta das fotos no modo local (padrão `./uploads`; no Compose, volume `arquivos_api`) |
+| `S3_BUCKET` | api | Bucket para o modo `s3` |
+| `COOKIE_SECURE` | web | `true`/`false` força o atributo Secure do cookie de sessão (padrão: `true` em produção) |
 | `NEXT_PUBLIC_API_URL` | web | URL da API vista pelo navegador |
 | `API_URL_INTERNA` | web | URL da API vista pelo servidor Next (no Compose: `http://api:3001`) |
 | `POSTGRES_USER/PASSWORD/DB` | compose | Credenciais do container PostgreSQL |
@@ -111,18 +140,17 @@ Nunca versione `.env`. Os arquivos `.env.example` contêm apenas placeholders (`
 | 422 ao calcular | Peça maior que a chapa (ou veio impede girar) — a mensagem diz qual |
 | 429 | Rate limit (login 5/min, lead 5/10 min) — aguarde |
 | Site mostra catálogo mesmo com a API fora | Comportamento esperado: fallback estático |
+| Login volta para `/login` em HTTP local de produção | Defina `COOKIE_SECURE=false` (o navegador descarta cookie Secure fora de HTTPS) |
+| 403 "Origem não permitida" em `/api/*` | A requisição veio de outra origem (proteção CSRF); acesse pelo mesmo domínio do site |
+| Medição fica "pendente" | Sem rede ou sessão expirada: ela continua no aparelho; entre de novo e ela sincroniza |
 
 ## Roadmap
 
-**Fase 1 — MVP (este repositório):** motor de chapas e custo; API completa (auth/RBAC, chapas, projetos + cálculo, OS com etapas/atraso/Gantt, pagamentos, catálogo, B2B, dashboard, WhatsApp link, auditoria); banco com migrações e seed; site público e esqueleto da área interna.
-Pendências para fechar a fase: login e telas internas (Kanban, plano de corte em SVG, dashboard), atualização de dependências (ver Riscos).
+**Fase 1 — MVP (este repositório):** motor de chapas e custo; API completa (auth/RBAC, chapas, projetos + cálculo, OS com etapas/atraso/Gantt, pagamentos, catálogo, B2B, dashboard, WhatsApp link, auditoria); banco com migrações e seed; site público.
 
-**Fase 2 — conforme "Próximos passos" do prompt mestre:**
-- Unir os artefatos num site único (domínio próprio) e adicionar fotos reais das obras da R. Mupia (upload S3)
-- Cálculo de chapas integrado à OS também na interface (na API já é automático ao criar OS a partir de projeto)
-- Divulgar `/empresas` para imobiliárias; proposta comercial B2B em PDF
-- Conectar a WhatsApp Business API para envio automático das atualizações de OS
-- PDFs/CSV (orçamento, OS, lista de compra, financeiro), PWA offline do marceneiro, mapa Google embarcado
+**Fase 2 — feito neste repositório:** dependências atualizadas por segurança; login com cookie httpOnly e telas internas (dashboard, Kanban/detalhe de OS, projetos com plano de corte SVG, chapas, CRM B2B); PDFs RF24; PWA offline de medição com fotos; testes ponta a ponta com Playwright.
+
+**Fase 2 — pendente:** tela de Gantt; armazenamento S3 real (hoje disco local); WhatsApp Business API com envio automático; mapa Google embarcado; fotos reais das obras da R. Mupia; domínio próprio; CSV/relatório financeiro.
 
 **Fase 3 — escala:** otimizador de corte com múltiplas heurísticas e reaproveitamento de retalhos, portal B2B com login, teste de carga para 100+ projetos simultâneos, avaliações Google no dashboard.
 
@@ -131,7 +159,8 @@ Pendências para fechar a fase: login e telas internas (Kanban, plano de corte e
 - **Dependências**: a stack do PDF previa Next.js 14; por segurança foi atualizada para **Next.js 15.5 + React 19** e **NestJS 11 (Express 5)**, com `overrides` no `package.json` raiz para dependências transitivas. `npm audit --omit=dev` = 0 vulnerabilidades em out/2026. Mantenha Dependabot/Renovate e rode o audit no CI.
 - **Heurística de corte**: guilhotina com *best short side fit* é rápida e correta, mas não garante o mínimo absoluto de chapas.
 - **WhatsApp Business API** depende de aprovação da Meta e templates; o MVP funciona só com links `wa.me`.
-- **Área interna web** ainda é esqueleto: a operação completa hoje é via API/Swagger.
+- **Fotos de medição** ficam em disco local (volume Docker) até o S3 ser implementado: faça backup do volume.
+- **Ferramentas de desenvolvimento**: `npm audit` completo aponta vitest 2/esbuild/tailwind 3 (só dev, não vão para produção); a correção exige vitest 5 e Tailwind 4.
 - **LGPD**: consentimento, anonimização e auditoria implementados; falta política de privacidade publicada, exportação de dados do titular e retenção automática.
 
 Detalhes e mitigação: [`docs/arquitetura.md`](docs/arquitetura.md#12-riscos-e-mitigação).
