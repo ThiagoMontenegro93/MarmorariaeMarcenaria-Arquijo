@@ -4,7 +4,7 @@ Sistema de móveis planejados ponta a ponta — do primeiro contato até o receb
 
 - **Motor de cálculo de chapas** (guilhotina 2D, serra, veio, sobras, estoque vs compra) e prévia de custo do orçamento
 - **API** NestJS + Prisma + PostgreSQL: OS com 9 etapas, prioridade, prazo e atraso; financeiro; catálogo; B2B; dashboard; WhatsApp; auditoria
-- **Site** Next.js 14 + Tailwind: home, coleções, página para empresas com formulário, contato com Google Maps e área interna (esqueleto)
+- **Site** Next.js 15 + React 19 + Tailwind: home, coleções, página para empresas com formulário, contato com Google Maps e área interna (esqueleto)
 
 Documento de arquitetura completo (requisitos, segurança, LGPD, deploy, riscos, critérios de aceite): [`docs/arquitetura.md`](docs/arquitetura.md).
 
@@ -12,8 +12,8 @@ Documento de arquitetura completo (requisitos, segurança, LGPD, deploy, riscos,
 
 ```mermaid
 flowchart LR
-  U[Cliente / equipe] --> W[apps/web<br/>Next.js 14 + Tailwind]
-  W -- REST/JSON --> A[apps/api<br/>NestJS]
+  U[Cliente / equipe] --> W[apps/web<br/>Next.js 15 + Tailwind]
+  W -- REST/JSON --> A[apps/api<br/>NestJS 11]
   A --> C[packages/calc<br/>motor puro de chapas]
   A -- Prisma --> P[(PostgreSQL 16)]
   A -- link wa.me / Business API (Fase 2) --> Z[WhatsApp]
@@ -24,10 +24,14 @@ flowchart LR
 arquijo/
 ├─ packages/calc/   motor de cálculo (TypeScript puro, sem dependências) + testes Vitest
 ├─ apps/api/        NestJS + Prisma (schema, migrações, seed) + testes das regras de negócio
-├─ apps/web/        Next.js 14 (App Router) + Tailwind
+├─ apps/web/        Next.js 15 (App Router) + React 19 + Tailwind
 ├─ docs/            arquitetura.md (documento NEXUS)
 ├─ docker-compose.yml · .env.example
 ```
+
+## Stack
+
+NestJS 11 (Express 5) · Prisma 5 · PostgreSQL 16 · Next.js 15.5 + React 19 · Tailwind 3 · Vitest. O prompt mestre indicava Next.js 14; a versão foi atualizada por segurança (vulnerabilidades críticas/altas no Next 14 e no NestJS 10).
 
 ## Requisitos
 
@@ -124,7 +128,7 @@ Pendências para fechar a fase: login e telas internas (Kanban, plano de corte e
 
 ## Riscos
 
-- **Dependências com vulnerabilidades conhecidas**: `npm audit --omit=dev` aponta 13 avisos (1 crítico em `next` 14, vários em `@nestjs/*` 10). As correções exigem versões maiores (Next 15+/16, Nest 11+). O PDF pede Next 14; **atualizar antes de produção**.
+- **Dependências**: a stack do PDF previa Next.js 14; por segurança foi atualizada para **Next.js 15.5 + React 19** e **NestJS 11 (Express 5)**, com `overrides` no `package.json` raiz para dependências transitivas. `npm audit --omit=dev` = 0 vulnerabilidades em out/2026. Mantenha Dependabot/Renovate e rode o audit no CI.
 - **Heurística de corte**: guilhotina com *best short side fit* é rápida e correta, mas não garante o mínimo absoluto de chapas.
 - **WhatsApp Business API** depende de aprovação da Meta e templates; o MVP funciona só com links `wa.me`.
 - **Área interna web** ainda é esqueleto: a operação completa hoje é via API/Swagger.

@@ -90,11 +90,11 @@ flowchart LR
   subgraph Cliente
     B[Navegador / celular]
   end
-  subgraph Web[apps/web · Next.js 14]
+  subgraph Web[apps/web · Next.js 15]
     P[Páginas públicas<br/>/ · /colecoes · /empresas · /contato]
     A[Área /app<br/>dashboard · OS · chapas]
   end
-  subgraph API[apps/api · NestJS]
+  subgraph API[apps/api · NestJS 11]
     G[Guards: rate limit → JWT → perfil]
     M[Módulos: auth · clientes · chapas · projetos<br/>ordens-servico · pagamentos · catalogo<br/>leads-b2b · dashboard · whatsapp · saude]
     D[dominio/: regras puras testadas]
@@ -122,7 +122,7 @@ arquijo/
 ├─ packages/calc/        motor puro (sem dependências de runtime) + testes Vitest
 ├─ apps/api/             NestJS + Prisma (schema, migrações, seed) + testes de domínio
 │  └─ src/{common,config,dominio,modulos,prisma}
-├─ apps/web/             Next.js 14 App Router + Tailwind
+├─ apps/web/             Next.js 15 App Router + React 19 + Tailwind
 ├─ docs/arquitetura.md   este documento
 ├─ docker-compose.yml    postgres + api + web
 └─ .env.example          placeholders (SECRET_KEY_AQUI, DB_PASSWORD, TOKEN_AQUI...)
@@ -274,11 +274,13 @@ Troca de provedor WhatsApp só por variável (`WHATSAPP_PROVIDER=link|business_a
 
 ## 11. Matriz de decisão da stack
 
+> **Atualização de versão por segurança:** o prompt mestre recomendava Next.js 14. Ele e o NestJS 10 tinham vulnerabilidades críticas/altas conhecidas cuja correção exigia versão maior. O projeto usa **Next.js 15.5 + React 19** e **NestJS 11 (Express 5)**, mantendo a mesma arquitetura.
+
 Pesos NEXUS: Performance 25 · Robustez 20 · Segurança 15 · Simplicidade 15 · Escalabilidade 10 · Custo 10 · Manutenção 5. Notas de 1 a 5.
 
 | Opção | Perf. | Rob. | Seg. | Simpl. | Escal. | Custo | Man. | **Total** |
 |---|---|---|---|---|---|---|---|---|
-| **NestJS + Prisma + PostgreSQL + Next.js (escolhida, PDF)** | 4 | 5 | 5 | 3 | 4 | 4 | 5 | **4,25** |
+| **NestJS 11 + Prisma + PostgreSQL + Next.js 15 (escolhida; PDF previa Next 14)** | 4 | 5 | 5 | 3 | 4 | 4 | 5 | **4,25** |
 | Next.js full-stack (route handlers) + Prisma | 4 | 3 | 4 | 5 | 3 | 5 | 3 | 3,90 |
 | FastAPI + SQLAlchemy + Next.js | 4 | 4 | 4 | 3 | 4 | 4 | 3 | 3,80 |
 | Supabase (BaaS) + Next.js | 4 | 3 | 4 | 4 | 4 | 3 | 3 | 3,65 |
@@ -290,7 +292,7 @@ Justificativa: Nest dá módulos, DI, guards e Swagger prontos para um domínio 
 | Risco | Prob. | Impacto | Mitigação |
 |---|---|---|---|
 | Heurística guilhotina não ser ótima (pode usar 1 chapa a mais que um otimizador) | média | médio | Testes de regressão; comparar com `estimativaPorArea`; Fase 3: busca com várias ordenações/heurísticas e escolher a melhor |
-| Vulnerabilidades conhecidas em dependências (npm audit: 13 em produção, incl. `next` 14 e `@nestjs/*` 10; correções exigem versões maiores) | alta | alto | **Antes de produção**: atualizar para NestJS 11+ e Next 15+ (o PDF fixa Next 14), rodar testes e build; Dependabot/Renovate |
+| Novas vulnerabilidades em dependências | média | alto | Stack atualizada (Next 15.5/React 19, NestJS 11/Express 5) + `overrides`: `npm audit --omit=dev` = 0 em out/2026; Dependabot/Renovate e audit no CI |
 | WhatsApp Business API exige aprovação da Meta e templates | média | médio | Fase 1 funciona 100% com `wa.me`; provider plugável |
 | Dados pessoais vazarem (LGPD) | baixa | alto | RBAC, auditoria, anonimização, HTTPS, backups criptografados |
 | Área interna web ainda sem login/telas | alta | médio | API completa e documentada; prioridade nº 1 da continuação |
