@@ -1,0 +1,20 @@
+{
+  "name": "arquijo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sistema Arquijo Marmoraria e Marcenaria — monorepo (motor de cálculo, API e web)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @arquijo/calc && npm run build -w @arquijo/api && npm run build -w @arquijo/web",
+    "test": "npm run test -w @arquijo/calc && npm run test -w @arquijo/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:api": "npm run start:dev -w @arquijo/api",
+    "dev:web": "npm run dev -w @arquijo/web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
