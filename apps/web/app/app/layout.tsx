@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BotaoSair } from '@/components/app/BotaoSair';
 import { MenuLateral } from '@/components/app/MenuLateral';
+import { RegistrarSW } from '@/components/app/RegistrarSW';
 import { EMPRESA, linkWhatsApp } from '@/lib/empresa';
 import { menuPara } from '@/lib/permissoes';
 import { obterSessao } from '@/lib/servidor';
@@ -42,6 +43,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
         </div>
       </aside>
       <main className="min-w-0 p-4 md:p-8">{children}</main>
+      <RegistrarSW />
     </div>
   );
 }

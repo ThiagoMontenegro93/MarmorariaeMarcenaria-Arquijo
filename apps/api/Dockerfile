@@ -27,6 +27,8 @@ COPY --from=build /repo/apps/api/package.json ./apps/api/
 COPY --from=build /repo/apps/api/dist ./apps/api/dist
 COPY --from=build /repo/apps/api/prisma ./apps/api/prisma
 WORKDIR /repo/apps/api
+# Fotos das medições (STORAGE_PROVIDER=local) — monte um volume aqui.
+RUN mkdir -p /repo/apps/api/uploads && chown node:node /repo/apps/api/uploads
 USER node
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e "fetch('http://localhost:3001/saude').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

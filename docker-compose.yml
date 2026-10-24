@@ -27,6 +27,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL no .env}
+      UPLOAD_DIR: /repo/apps/api/uploads
+    volumes:
+      - arquivos_api:/repo/apps/api/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,6 +45,8 @@ services:
     restart: unless-stopped
     environment:
       API_URL_INTERNA: ${API_URL_INTERNA:-http://api:3001}
+      # Cookie de sessão "Secure" (padrão em produção). Use false só para testar via http em outro host da rede.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
     depends_on:
       - api
     ports:
@@ -49,3 +54,4 @@ services:
 
 volumes:
   dados_postgres:
+  arquivos_api:

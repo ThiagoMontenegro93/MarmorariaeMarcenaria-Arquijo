@@ -12,6 +12,9 @@ export interface Ambiente {
   WHATSAPP_PROVIDER: 'link' | 'business_api';
   WHATSAPP_API_TOKEN?: string;
   WHATSAPP_PHONE_NUMBER_ID?: string;
+  STORAGE_PROVIDER: 'local' | 's3';
+  UPLOAD_DIR: string;
+  S3_BUCKET?: string;
 }
 
 const PLACEHOLDERS = ['SECRET_KEY_AQUI', 'TOKEN_AQUI', 'API_KEY_AQUI', 'DB_PASSWORD'];
@@ -36,6 +39,9 @@ export function validarAmbiente(config: Record<string, unknown>): Ambiente {
   const provider = (texto('WHATSAPP_PROVIDER') || 'link') as Ambiente['WHATSAPP_PROVIDER'];
   if (!['link', 'business_api'].includes(provider)) erros.push('WHATSAPP_PROVIDER deve ser "link" ou "business_api".');
 
+  const storage = (texto('STORAGE_PROVIDER') || 'local') as Ambiente['STORAGE_PROVIDER'];
+  if (!['local', 's3'].includes(storage)) erros.push('STORAGE_PROVIDER deve ser "local" ou "s3".');
+
   if (erros.length) {
     throw new Error(`Configuração inválida:\n - ${erros.join('\n - ')}`);
   }
@@ -53,5 +59,8 @@ export function validarAmbiente(config: Record<string, unknown>): Ambiente {
     WHATSAPP_PROVIDER: provider,
     WHATSAPP_API_TOKEN: texto('WHATSAPP_API_TOKEN') || undefined,
     WHATSAPP_PHONE_NUMBER_ID: texto('WHATSAPP_PHONE_NUMBER_ID') || undefined,
+    STORAGE_PROVIDER: storage,
+    UPLOAD_DIR: texto('UPLOAD_DIR') || './uploads',
+    S3_BUCKET: texto('S3_BUCKET') || undefined,
   };
 }

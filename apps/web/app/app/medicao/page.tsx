@@ -1,3 +1,8 @@
+import type { Metadata } from 'next';
+import { TelaMedicao } from '@/components/TelaMedicao';
+
+export const metadata: Metadata = { title: 'Medição na obra' };
+
 export default function PaginaMedicao() {
-  return <p className="text-sm text-stone-500">Medição offline — em construção.</p>;
+  return <TelaMedicao />;
 }

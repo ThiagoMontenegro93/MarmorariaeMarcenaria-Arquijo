@@ -135,6 +135,7 @@ model Usuario {
   projetos          Projeto[]
   leadsResponsavel  LeadB2B[]
   auditLogs         AuditLog[]
+  medicoes          Medicao[]
 
   @@index([perfil])
 }
@@ -277,6 +278,7 @@ model OrdemServico {
   historico   HistoricoEtapa[]
   pagamentos  Pagamento[]
   mensagens   MensagemWhatsapp[]
+  medicoes    Medicao[]
 
   @@index([status, prioridade])
   @@index([prazoAcordado])
@@ -498,4 +500,28 @@ model AuditLog {
   @@index([entidade, entidadeId])
   @@index([usuarioId, criadoEm])
   @@index([criadoEm])
+}
+
+// ───────────────────────── Medição na obra (PWA offline — RNF03) ─────────────────────────
+
+model Medicao {
+  id             String   @id @default(uuid()) @db.Uuid
+  /// Identificador gerado no celular (offline) — garante idempotência na sincronização
+  idLocal        String   @unique @db.VarChar(64)
+  ordemServicoId String   @db.Uuid
+  usuarioId      String?  @db.Uuid
+  ambiente       String   @db.VarChar(80)
+  /// [{ nome, larguraMm, alturaMm }]
+  paredes        Json     @default("[]")
+  observacoes    String?
+  /// Chaves dos arquivos no armazenamento (local ou S3)
+  fotos          String[] @default([])
+  /// Momento da medição no aparelho (pode ser anterior à sincronização)
+  medidoEm       DateTime
+  criadoEm       DateTime @default(now())
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id], onDelete: Cascade)
+  usuario      Usuario?     @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([ordemServicoId, medidoEm])
 }

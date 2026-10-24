@@ -9,10 +9,11 @@
   ],
   "scripts": {
     "build": "npm run build -w @arquijo/calc && npm run build -w @arquijo/api && npm run build -w @arquijo/web",
-    "test": "npm run test -w @arquijo/calc && npm run test -w @arquijo/api",
+    "test": "npm run test -w @arquijo/calc && npm run test -w @arquijo/api && npm run test -w @arquijo/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run start:dev -w @arquijo/api",
-    "dev:web": "npm run dev -w @arquijo/web"
+    "dev:web": "npm run dev -w @arquijo/web",
+    "e2e": "node e2e/telas.cjs && node e2e/medicao-offline.cjs"
   },
   "engines": {
     "node": ">=20"

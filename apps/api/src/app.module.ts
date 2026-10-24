@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtModule, type JwtSignOptions } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ArmazenamentoModule } from './armazenamento/armazenamento.module';
 import { AuditModule } from './common/audit/audit.module';
 import { ErroCalculoFilter } from './common/filters/erro-calculo.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -14,6 +15,7 @@ import { ChapasModule } from './modulos/chapas/chapas.module';
 import { ClientesModule } from './modulos/clientes/clientes.module';
 import { DashboardModule } from './modulos/dashboard/dashboard.module';
 import { LeadsB2BModule } from './modulos/leads-b2b/leads-b2b.module';
+import { MedicoesModule } from './modulos/medicoes/medicoes.module';
 import { OrdensServicoModule } from './modulos/ordens-servico/ordens-servico.module';
 import { PagamentosModule } from './modulos/pagamentos/pagamentos.module';
 import { PdfModule } from './modulos/pdf/pdf.module';
@@ -53,6 +55,8 @@ import { PrismaModule } from './prisma/prisma.module';
     DashboardModule,
     WhatsappModule,
     PdfModule,
+    ArmazenamentoModule,
+    MedicoesModule,
   ],
   providers: [
     // Ordem importa: rate limit → autenticação → autorização por perfil.
