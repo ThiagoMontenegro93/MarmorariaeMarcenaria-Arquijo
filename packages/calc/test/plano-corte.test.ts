@@ -67,7 +67,7 @@ describe('calcularPlanoCorte — exemplo do PDF', () => {
             // expande "a" pela serra: nenhuma peça pode invadir o corte
             const aComSerra = { ...a, largura: a.largura + 4, altura: a.altura + 4 };
             const bComSerra = { ...b, largura: b.largura + 4, altura: b.altura + 4 };
-            expect(sobrepoe(aComSerra, b) && sobrepoe(bComSerra, a)).toBe(false);
+            expect(sobrepoe(aComSerra, b) || sobrepoe(bComSerra, a)).toBe(false);
           }
         }
       }
