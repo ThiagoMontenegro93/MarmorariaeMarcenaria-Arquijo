@@ -5,7 +5,9 @@
  * Variáveis:
  *  SEED_ADMIN_EMAIL  (padrão admin@arquijo.com.br)
  *  SEED_ADMIN_SENHA  (obrigatória em produção; em dev, se ausente, gera uma aleatória e mostra no console)
- *  SEED_DEMO=true    cria cliente, projeto (cut list do PDF) e OS de demonstração
+ *  SEED_DEMO=true    cria dados de demonstração: usuários gestor/marceneiro/comercial (mesma senha do admin),
+ *                    cliente, projeto (cut list do PDF), 3 OS em etapas diferentes, pagamentos e um lead B2B.
+ *                    Use apenas em desenvolvimento/homologação.
  */
 import { PrismaClient, type Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -83,14 +85,15 @@ async function seedAdmin() {
     console.log(`⚠️  SEED_ADMIN_SENHA não definida. Senha gerada para ${email}: ${senha}  (troque após o primeiro acesso)`);
   }
   const existe = await prisma.usuario.findUnique({ where: { email } });
-  if (existe) return existe;
-  return prisma.usuario.create({
+  if (existe) return { admin: existe, senha };
+  const admin = await prisma.usuario.create({
     data: { nome: 'Administrador', email, perfil: 'ADMIN', senhaHash: await bcrypt.hash(senha, 12) },
   });
+  return { admin, senha };
 }
 
 async function main() {
-  const admin = await seedAdmin();
+  const { admin, senha } = await seedAdmin();
 
   const colecoes = new Map<string, string>();
   for (const c of COLECOES) {
@@ -162,42 +165,111 @@ async function main() {
   await prisma.obraPortfolio.upsert({ where: { slug: 'cozinha-12m2-barra-da-tijuca' }, create: { slug: 'cozinha-12m2-barra-da-tijuca', ...obra }, update: obra });
 
   if (process.env.SEED_DEMO === 'true') {
-    const existe = await prisma.cliente.findFirst({ where: { nome: 'Cliente Demonstração' } });
-    if (!existe) {
-      const cliente = await prisma.cliente.create({
-        data: { nome: 'Cliente Demonstração', telefone: '5521900000000', bairro: 'Barra da Tijuca', consentimentoLgpd: true, consentimentoEm: new Date(), consentimentoOrigem: 'seed' },
-      });
-      const freijo = chapas.get('MDF Freijó')!;
-      const branco = chapas.get('MDF Branco TX')!;
-      const projeto = await prisma.projeto.create({
-        data: {
-          nome: 'Cozinha demonstração (cut list do PDF)',
-          ambiente: 'Cozinha',
-          clienteId: cliente.id,
-          criadoPorId: admin.id,
-          horasMaoDeObra: 16,
-          valorHora: 60,
-          ferragens: [
-            { nome: 'Dobradiça com amortecimento', quantidade: 4, precoUnitario: 18 },
-            { nome: 'Corrediça telescópica', quantidade: 2, precoUnitario: 45 },
-          ],
-          pecas: {
-            createMany: {
-              data: [
-                { nome: 'Porta', larguraMm: 700, alturaMm: 400, quantidade: 2, chapaId: freijo, veio: true },
-                { nome: 'Lateral', larguraMm: 2100, alturaMm: 600, quantidade: 2, chapaId: freijo, veio: true },
-                { nome: 'Prateleira', larguraMm: 560, alturaMm: 400, quantidade: 4, chapaId: branco, veio: false },
-                { nome: 'Fundo', larguraMm: 2100, alturaMm: 580, quantidade: 1, chapaId: branco, veio: false },
-              ],
-            },
-          },
-        },
-      });
-      console.log(`Demo: cliente ${cliente.id}, projeto ${projeto.id}`);
-    }
+    await seedDemo(admin.id, senha, chapas);
   }
 
   console.log(`Seed concluído: ${COLECOES.length} coleções, ${MODELOS.length} modelos, ${combos.length} combos, ${CHAPAS.length} chapas.`);
+}
+
+const DIA = 86_400_000;
+
+/** Dados de demonstração idempotentes (identificados por nomes/e-mails fixos). */
+async function seedDemo(adminId: string, senha: string, chapas: Map<string, string>) {
+  const hash = await bcrypt.hash(senha, 12);
+  for (const [nome, email, perfil] of [
+    ['Gestora Demo', 'gestor@arquijo.com.br', 'GESTOR'],
+    ['Marceneiro Demo', 'marceneiro@arquijo.com.br', 'MARCENEIRO'],
+    ['Comercial Demo', 'comercial@arquijo.com.br', 'COMERCIAL'],
+  ] as const) {
+    await prisma.usuario.upsert({ where: { email }, create: { nome, email, perfil, senhaHash: hash }, update: {} });
+  }
+
+  if (await prisma.cliente.findFirst({ where: { nome: 'Cliente Demonstração' } })) return;
+  const agora = Date.now();
+  const cliente = await prisma.cliente.create({
+    data: { nome: 'Cliente Demonstração', telefone: '5521900000000', bairro: 'Barra da Tijuca', consentimentoLgpd: true, consentimentoEm: new Date(), consentimentoOrigem: 'seed' },
+  });
+  const cliente2 = await prisma.cliente.create({
+    data: { nome: 'Marina Souza', telefone: '5521911112222', bairro: 'Recreio', consentimentoLgpd: true, consentimentoEm: new Date(), consentimentoOrigem: 'seed' },
+  });
+  const freijo = chapas.get('MDF Freijó')!;
+  const branco = chapas.get('MDF Branco TX')!;
+  const projeto = await prisma.projeto.create({
+    data: {
+      nome: 'Cozinha demonstração (cut list do PDF)',
+      ambiente: 'Cozinha',
+      clienteId: cliente.id,
+      criadoPorId: adminId,
+      horasMaoDeObra: 16,
+      valorHora: 60,
+      ferragens: [
+        { nome: 'Dobradiça com amortecimento', quantidade: 4, precoUnitario: 18 },
+        { nome: 'Corrediça telescópica', quantidade: 2, precoUnitario: 45 },
+      ],
+      pecas: {
+        createMany: {
+          data: [
+            { nome: 'Porta', larguraMm: 700, alturaMm: 400, quantidade: 2, chapaId: freijo, veio: true },
+            { nome: 'Lateral', larguraMm: 2100, alturaMm: 600, quantidade: 2, chapaId: freijo, veio: true },
+            { nome: 'Prateleira', larguraMm: 560, alturaMm: 400, quantidade: 4, chapaId: branco, veio: false },
+            { nome: 'Fundo', larguraMm: 2100, alturaMm: 580, quantidade: 1, chapaId: branco, veio: false },
+          ],
+        },
+      },
+    },
+  });
+
+  // OS em etapas diferentes para o Kanban e o dashboard.
+  const etapas = ['ORCAMENTO', 'APROVADO', 'MEDICAO', 'COMPRA_MATERIAIS', 'PRODUCAO'] as const;
+  const osDefs = [
+    { clienteId: cliente.id, ambiente: 'Cozinha', status: 'ORCAMENTO' as const, prioridade: 'NORMAL' as const, prazo: 30, valor: 18500 },
+    { clienteId: cliente2.id, ambiente: 'Closet casal', status: 'MEDICAO' as const, prioridade: 'ALTA' as const, prazo: 20, valor: 9800, medicaoHoje: true },
+    { clienteId: cliente2.id, ambiente: 'Painel ripado TV', status: 'PRODUCAO' as const, prioridade: 'EMERGENCIAL' as const, prazo: -3, valor: 2850 },
+  ];
+  for (const d of osDefs) {
+    const ate = etapas.indexOf(d.status as (typeof etapas)[number]);
+    const os = await prisma.ordemServico.create({
+      data: {
+        clienteId: d.clienteId,
+        projetoId: d.status === 'ORCAMENTO' ? projeto.id : undefined,
+        ambiente: d.ambiente,
+        status: d.status,
+        prioridade: d.prioridade,
+        prazoAcordado: new Date(agora + d.prazo * DIA),
+        dataAprovacao: ate >= 1 ? new Date(agora - 10 * DIA) : undefined,
+        dataMedicao: d.medicaoHoje ? new Date(agora) : undefined,
+        valorTotal: d.valor,
+        valorEntrada: d.valor / 2,
+        historico: {
+          create: etapas.slice(0, ate + 1).map((para, i) => ({
+            de: i === 0 ? null : etapas[i - 1],
+            para,
+            entrouEm: new Date(agora - (10 - i * 2) * DIA),
+            saiuEm: i < ate ? new Date(agora - (10 - (i + 1) * 2) * DIA) : null,
+            usuarioId: adminId,
+          })),
+        },
+      },
+    });
+    if (ate >= 1) {
+      // entrada paga + saldo pendente
+      await prisma.pagamento.createMany({
+        data: [
+          { ordemServicoId: os.id, tipo: 'ENTRADA', forma: 'PIX', valor: d.valor / 2, status: 'PAGO', pagoEm: new Date(agora - 2 * DIA), vencimento: new Date(agora - 2 * DIA), registradoPor: adminId },
+          { ordemServicoId: os.id, tipo: 'PARCELA', forma: 'CARTAO', valor: d.valor / 2, vencimento: new Date(agora + d.prazo * DIA), registradoPor: adminId },
+        ],
+      });
+      await prisma.ordemServico.update({ where: { id: os.id }, data: { valorRecebido: d.valor / 2, statusFinanceiro: 'PARCIAL' } });
+    }
+  }
+
+  await prisma.leadB2B.create({
+    data: {
+      tipo: 'IMOBILIARIA', nomeEmpresa: 'Imobiliária Barra Demo', cnpj: '11222333000181', responsavel: 'Paula', whatsapp: '5521933334444',
+      unidades: 20, bairro: 'Barra da Tijuca', orcamentoEstimado: 200000, precisaMedicao: true, consentimentoLgpd: true, origem: 'seed',
+    },
+  });
+  console.log(`Demo: projeto ${projeto.id}, 3 OS, 1 lead, usuários gestor/marceneiro/comercial@arquijo.com.br`);
 }
 
 main()

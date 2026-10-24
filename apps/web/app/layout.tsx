@@ -1,7 +1,4 @@
-import type { Metadata } from 'next';
-import { BotaoWhatsappFlutuante } from '@/components/BotaoWhatsapp';
-import { Cabecalho } from '@/components/Cabecalho';
-import { Rodape } from '@/components/Rodape';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -9,15 +6,12 @@ export const metadata: Metadata = {
   description: 'Móveis planejados, marmoraria e marcenaria de alto padrão no Rio de Janeiro. Cozinhas, closets, painéis e bancadas.',
 };
 
+export const viewport: Viewport = { themeColor: '#8f5e30', width: 'device-width', initialScale: 1 };
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>
-        <Cabecalho />
-        <main>{children}</main>
-        <Rodape />
-        <BotaoWhatsappFlutuante />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

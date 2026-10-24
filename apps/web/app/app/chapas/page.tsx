@@ -1,11 +1,9 @@
-import { Placeholder } from '@/components/Placeholder';
+import { TelaChapas } from '@/components/projetos/TelaChapas';
+import { PODE } from '@/lib/permissoes';
+import { obterSessao } from '@/lib/servidor';
 
-export default function Chapas() {
-  return (
-    <Placeholder
-      titulo="Chapas e cálculo"
-      endpoint="GET /chapas · POST /projetos/:id/calcular"
-      itens={['Cadastro de chapas e estoque', 'Cut list do projeto', 'Plano de corte 2D por chapa (sobras em cinza)', 'Prévia de custo e lista de compra']}
-    />
-  );
+export default async function PaginaChapas() {
+  const s = await obterSessao();
+  const perfil = s?.sessao.perfil ?? 'COMERCIAL';
+  return <TelaChapas podeEditar={PODE.editarChapas(perfil)} podeAjustarEstoque={['ADMIN', 'GESTOR', 'MARCENEIRO'].includes(perfil)} />;
 }

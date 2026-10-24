@@ -1,6 +1,6 @@
 import type { Config } from 'tailwindcss';
 
-// Branding (RNF07): cores da marca em variáveis CSS, trocáveis sem rebuild de componentes.
+// Branding (RNF07): cores em variáveis CSS (madeira + pedra), trocáveis sem mexer nos componentes.
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
@@ -12,9 +12,17 @@ const config: Config = {
           clara: 'rgb(var(--cor-marca-clara) / <alpha-value>)',
         },
         pedra: 'rgb(var(--cor-pedra) / <alpha-value>)',
-        whatsapp: '#25D366',
+        fundo: 'rgb(var(--cor-fundo) / <alpha-value>)',
+        superficie: 'rgb(var(--cor-superficie) / <alpha-value>)',
+        linha: 'rgb(var(--cor-linha) / <alpha-value>)',
+        grafite: 'rgb(var(--cor-grafite) / <alpha-value>)',
+        whatsapp: '#17824a',
+        prioridade: { baixa: '#8a8984', normal: '#2f6fb5', alta: '#dd7419', emergencial: '#c62828' },
       },
-      fontFamily: { sans: ['system-ui', 'Segoe UI', 'Roboto', 'sans-serif'] },
+      fontFamily: {
+        sans: ['"Public Sans"', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['Fraunces', 'Georgia', 'serif'],
+      },
     },
   },
   plugins: [],

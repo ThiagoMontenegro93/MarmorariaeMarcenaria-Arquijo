@@ -1,11 +1,8 @@
-import { Placeholder } from '@/components/Placeholder';
+import { KanbanOs } from '@/components/os/KanbanOs';
+import { PODE } from '@/lib/permissoes';
+import { obterSessao } from '@/lib/servidor';
 
-export default function OrdensServico() {
-  return (
-    <Placeholder
-      titulo="Ordens de serviço"
-      endpoint="GET /ordens-servico/kanban"
-      itens={['Kanban com 9 etapas (Orçamento → Finalizado)', 'Prioridade com cor (Emergencial pulsante)', 'Detalhe: timeline, financeiro, histórico WhatsApp', 'Botões: mover etapa, registrar pagamento, enviar WhatsApp']}
-    />
-  );
+export default async function PaginaOs() {
+  const s = await obterSessao();
+  return <KanbanOs podeCriar={!!s && PODE.criarOs(s.sessao.perfil)} />;
 }
