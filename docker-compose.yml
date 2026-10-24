@@ -1,0 +1,51 @@
+# Ambiente completo: PostgreSQL + API (NestJS) + Web (Next.js)
+# Uso: cp .env.example .env  (troque os placeholders)  &&  docker compose up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-arquijo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-arquijo}
+    volumes:
+      - dados_postgres:/var/lib/postgresql/data
+    # Não exponha 5432 em produção; aqui apenas na interface local.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-arquijo} -d ${POSTGRES_DB:-arquijo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL no .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    restart: unless-stopped
+    environment:
+      API_URL_INTERNA: ${API_URL_INTERNA:-http://api:3001}
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  dados_postgres:
