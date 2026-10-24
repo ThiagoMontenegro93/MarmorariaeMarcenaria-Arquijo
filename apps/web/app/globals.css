@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta da marca (madeira + pedra). Altere aqui para rebrand. */
+:root {
+  --cor-marca: 120 78 46;
+  --cor-marca-escura: 74 47 27;
+  --cor-marca-clara: 240 230 218;
+  --cor-pedra: 38 38 38;
+}
+
+body {
+  @apply bg-white text-pedra antialiased;
+}
+
+.container-site {
+  @apply mx-auto max-w-6xl px-4;
+}
