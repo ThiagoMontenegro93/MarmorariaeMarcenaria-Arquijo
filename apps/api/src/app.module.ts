@@ -16,6 +16,7 @@ import { DashboardModule } from './modulos/dashboard/dashboard.module';
 import { LeadsB2BModule } from './modulos/leads-b2b/leads-b2b.module';
 import { OrdensServicoModule } from './modulos/ordens-servico/ordens-servico.module';
 import { PagamentosModule } from './modulos/pagamentos/pagamentos.module';
+import { PdfModule } from './modulos/pdf/pdf.module';
 import { ProjetosModule } from './modulos/projetos/projetos.module';
 import { SaudeModule } from './modulos/saude/saude.module';
 import { WhatsappModule } from './modulos/whatsapp/whatsapp.module';
@@ -51,6 +52,7 @@ import { PrismaModule } from './prisma/prisma.module';
     LeadsB2BModule,
     DashboardModule,
     WhatsappModule,
+    PdfModule,
   ],
   providers: [
     // Ordem importa: rate limit → autenticação → autorização por perfil.

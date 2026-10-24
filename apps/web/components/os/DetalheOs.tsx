@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { api } from '@/lib/cliente-api';
+import { api, urlDownload } from '@/lib/cliente-api';
 import { brl, COR_ETAPA, data, dataHora, ESTILO_PRIORIDADE, ETAPAS, ROTULO_ETAPA, ROTULO_PRIORIDADE } from '@/lib/formato';
 import type { OsDetalhe } from './tipos';
 
@@ -96,6 +96,9 @@ export function DetalheOs({ id, podeFinanceiro }: { id: string; podeFinanceiro: 
           <button type="button" className="botao-wa" disabled={ocupado} onClick={whatsapp}>
             Enviar atualização no WhatsApp
           </button>
+          <a className="botao-sec" href={urlDownload(`/pdf/ordens-servico/${id}`)} download>
+            Baixar OS (PDF)
+          </a>
         </div>
       </div>
 

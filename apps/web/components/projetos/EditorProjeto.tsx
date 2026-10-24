@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/cliente-api';
+import { api, urlDownload } from '@/lib/cliente-api';
 import { ResultadoCalculoView } from './ResultadoCalculoView';
 import type { Chapa, Ferragem, LinhaPeca, PreviaCusto, Projeto, ResultadoCalculo } from './tipos';
 
@@ -175,6 +175,16 @@ export function EditorProjeto({ id }: { id: string }) {
         <button type="button" className="botao" disabled={ocupado || linhas.length === 0} onClick={salvarECalcular}>
           {ocupado ? 'Calculando…' : 'Calcular chapas necessárias'}
         </button>
+        {resultado && (
+          <>
+            <a className="botao-sec" href={urlDownload(`/pdf/projetos/${id}/orcamento`)} download>
+              Orçamento (PDF)
+            </a>
+            <a className="botao-sec" href={urlDownload(`/pdf/projetos/${id}/lista-compra`)} download>
+              Lista de compra (PDF)
+            </a>
+          </>
+        )}
         {erro && (
           <p role="alert" className="text-sm text-red-700">
             {erro}

@@ -86,6 +86,14 @@ async function login(page, email = EMAIL, senha = SENHA) {
       resultados.push(`  · ${total} chapas, ${svgs} planos SVG, valor ${(await page.getByTestId('valor-final').textContent()).trim()}`);
     });
 
+    await passo('baixar PDF do orçamento', async () => {
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', { name: 'Orçamento (PDF)' }).click()]);
+      const caminho = await download.path();
+      const conteudo = require('node:fs').readFileSync(caminho);
+      assert.equal(conteudo.subarray(0, 5).toString(), '%PDF-');
+      resultados.push(`  · ${download.suggestedFilename()} (${conteudo.length} bytes)`);
+    });
+
     await passo('menus por perfil: marceneiro não vê Dashboard nem Leads', async () => {
       const ctx2 = await browser.newContext();
       const p2 = await ctx2.newPage();

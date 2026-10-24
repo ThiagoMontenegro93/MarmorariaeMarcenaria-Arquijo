@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '@/lib/cliente-api';
+import { api, urlDownload } from '@/lib/cliente-api';
 import { brl, data } from '@/lib/formato';
 
 type Status = 'NOVO' | 'EM_CONTATO' | 'PROPOSTA_ENVIADA' | 'FECHADO';
@@ -81,6 +81,9 @@ export function CrmLeads() {
                     <button type="button" className="botao-wa px-2 py-1 text-xs" onClick={() => whatsapp(l.id)}>
                       WhatsApp
                     </button>
+                    <a className="botao-sec px-2 py-1 text-xs" href={urlDownload(`/pdf/leads-b2b/${l.id}/proposta`)} download>
+                      Proposta PDF
+                    </a>
                   </div>
                 </article>
               ))}
