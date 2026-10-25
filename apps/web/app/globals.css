@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta da marca (madeira + pedra), inspirada no protótipo. Altere aqui para rebrand. */
+:root {
+  --cor-marca: 143 94 48;
+  --cor-marca-escura: 122 78 37;
+  --cor-marca-clara: 239 226 209;
+  --cor-pedra: 30 30 28;
+  --cor-fundo: 239 237 232;
+  --cor-superficie: 251 250 247;
+  --cor-linha: 212 206 195;
+  --cor-grafite: 44 44 42;
+}
+
+body {
+  @apply bg-white text-pedra antialiased;
+}
+
+.container-site {
+  @apply mx-auto max-w-6xl px-4;
+}
+
+@layer components {
+  .cartao {
+    @apply rounded-xl border border-linha bg-superficie p-4 shadow-sm;
+  }
+  .botao {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-marca px-4 py-2 text-sm font-semibold text-white transition hover:bg-marca-escura disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .botao-sec {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-linha bg-white px-4 py-2 text-sm font-semibold text-pedra transition hover:border-marca disabled:opacity-60;
+  }
+  .botao-wa {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-whatsapp px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110;
+  }
+  .campo {
+    @apply w-full rounded-lg border border-linha bg-white px-3 py-2 text-sm focus:border-marca focus:outline-none focus:ring-2 focus:ring-marca/30;
+  }
+  .rotulo {
+    @apply block text-xs font-semibold uppercase tracking-wide text-stone-500;
+  }
+  .titulo-pagina {
+    @apply font-display text-2xl font-semibold text-marca-escura;
+  }
+}

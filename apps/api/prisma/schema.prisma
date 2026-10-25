@@ -1,0 +1,527 @@
+// Modelo de dados — Arquijo Marmoraria e Marcenaria (MVP Fase 1)
+// Convenções:
+//  - ids UUID; valores monetários em Decimal(12,2) (R$); medidas em milímetros (Int)
+//  - soft delete via `deletadoEm` nas entidades de negócio (clientes, OS, projetos...)
+//  - nomes em português para casar com o vocabulário da marcenaria
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum PerfilUsuario {
+  ADMIN
+  GESTOR
+  MARCENEIRO
+  COMERCIAL
+}
+
+enum TipoCliente {
+  RESIDENCIAL
+  IMOBILIARIA
+  CONSTRUTORA
+  EMPREITEIRA
+  CORPORATIVO
+}
+
+/// As 9 etapas do Kanban de OS (Módulo C), na ordem do fluxo.
+enum StatusOS {
+  ORCAMENTO
+  APROVADO
+  MEDICAO
+  COMPRA_MATERIAIS
+  PRODUCAO
+  INSTALACAO
+  ENTREGA
+  RECEBIMENTO
+  FINALIZADO
+}
+
+enum PrioridadeOS {
+  BAIXA
+  NORMAL
+  ALTA
+  EMERGENCIAL
+}
+
+/// Situação financeira consolidada da OS.
+enum StatusFinanceiroOS {
+  PENDENTE
+  PARCIAL
+  PAGO
+}
+
+enum TipoPagamento {
+  ENTRADA
+  PARCELA
+}
+
+enum FormaPagamento {
+  PIX
+  CARTAO
+  PARCELADO
+}
+
+enum StatusPagamento {
+  PENDENTE
+  PAGO
+  CANCELADO
+}
+
+enum StatusProjeto {
+  RASCUNHO
+  CALCULADO
+  EM_ORCAMENTO
+  APROVADO
+}
+
+enum DirecaoMensagem {
+  ENVIADA
+  RECEBIDA
+}
+
+enum CanalWhatsapp {
+  LINK_WA_ME
+  BUSINESS_API
+}
+
+enum StatusMensagem {
+  GERADA
+  ENVIADA
+  FALHA
+}
+
+enum TipoEmpresaB2B {
+  IMOBILIARIA
+  CONSTRUTORA
+  EMPREITEIRA
+}
+
+/// CRM Kanban de leads B2B (Módulo F).
+enum StatusLeadB2B {
+  NOVO
+  EM_CONTATO
+  PROPOSTA_ENVIADA
+  FECHADO
+  PERDIDO
+}
+
+// ───────────────────────── Acesso ─────────────────────────
+
+model Usuario {
+  id            String        @id @default(uuid()) @db.Uuid
+  nome          String        @db.VarChar(120)
+  email         String        @unique @db.VarChar(180)
+  senhaHash     String
+  perfil        PerfilUsuario @default(MARCENEIRO)
+  telefone      String?       @db.VarChar(20)
+  ativo         Boolean       @default(true)
+  ultimoLoginEm DateTime?
+  criadoEm      DateTime      @default(now())
+  atualizadoEm  DateTime      @updatedAt
+  deletadoEm    DateTime?
+
+  ordensResponsavel OrdemServico[]     @relation("ResponsavelOS")
+  historicos        HistoricoEtapa[]
+  pagamentos        Pagamento[]
+  mensagens         MensagemWhatsapp[]
+  projetos          Projeto[]
+  leadsResponsavel  LeadB2B[]
+  auditLogs         AuditLog[]
+  medicoes          Medicao[]
+
+  @@index([perfil])
+}
+
+// ───────────────────────── Clientes (LGPD) ─────────────────────────
+
+model Cliente {
+  id                  String      @id @default(uuid()) @db.Uuid
+  nome                String      @db.VarChar(150)
+  telefone            String      @db.VarChar(20) /// WhatsApp no formato E.164 sem "+", ex.: 5521984503570
+  email               String?     @db.VarChar(180)
+  documento           String?     @db.VarChar(18) /// CPF/CNPJ — dado pessoal, só perfis autorizados
+  endereco            String?     @db.VarChar(255)
+  bairro              String?     @db.VarChar(80)
+  cidade              String      @default("Rio de Janeiro") @db.VarChar(80)
+  tipo                TipoCliente @default(RESIDENCIAL)
+  /// LGPD: consentimento explícito para tratamento de dados e contato por WhatsApp
+  consentimentoLgpd   Boolean     @default(false)
+  consentimentoEm     DateTime?
+  consentimentoOrigem String?     @db.VarChar(60) /// ex.: "site/contato", "balcão", "whatsapp"
+  observacoes         String?
+  criadoEm            DateTime    @default(now())
+  atualizadoEm        DateTime    @updatedAt
+  deletadoEm          DateTime?
+
+  projetos  Projeto[]
+  ordens    OrdemServico[]
+  mensagens MensagemWhatsapp[]
+
+  @@index([nome])
+  @@index([telefone])
+  @@index([deletadoEm])
+}
+
+// ───────────────────────── Chapas e projetos (Módulo B) ─────────────────────────
+
+model Chapa {
+  id            String    @id @default(uuid()) @db.Uuid
+  nome          String    @db.VarChar(120) /// ex.: "MDF Freijó 18mm"
+  material      String    @db.VarChar(80) /// ex.: "MDF Freijó"
+  larguraMm     Int
+  alturaMm      Int
+  espessuraMm   Int
+  qtdEstoque    Int       @default(0)
+  custoUnitario Decimal   @db.Decimal(12, 2)
+  fornecedor    String?   @db.VarChar(120)
+  ativo         Boolean   @default(true)
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+  deletadoEm    DateTime?
+
+  pecas Peca[]
+
+  @@unique([material, espessuraMm, larguraMm, alturaMm])
+  @@index([ativo])
+}
+
+model Projeto {
+  id                String        @id @default(uuid()) @db.Uuid
+  nome              String        @db.VarChar(150)
+  ambiente          String?       @db.VarChar(80)
+  status            StatusProjeto @default(RASCUNHO)
+  clienteId         String?       @db.Uuid
+  modeloId          String?       @db.Uuid
+  criadoPorId       String?       @db.Uuid
+  espessuraSerraMm  Int           @default(4)
+  /// Parâmetros da prévia de custo (RF05)
+  precoFitaPorMetro Decimal       @default(2.5) @db.Decimal(10, 2)
+  horasMaoDeObra    Decimal       @default(0) @db.Decimal(8, 2)
+  valorHora         Decimal       @default(0) @db.Decimal(10, 2)
+  margemPct         Decimal       @default(30) @db.Decimal(5, 2)
+  ferragens         Json          @default("[]") /// [{ nome, quantidade, precoUnitario }]
+  /// Snapshot do último cálculo (plano de corte + prévia) — evita recalcular para exibir
+  resultadoCalculo  Json?
+  previaCusto       Json?
+  calculadoEm       DateTime?
+  criadoEm          DateTime      @default(now())
+  atualizadoEm      DateTime      @updatedAt
+  deletadoEm        DateTime?
+
+  cliente   Cliente?       @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  modelo    Modelo?        @relation(fields: [modeloId], references: [id], onDelete: SetNull)
+  criadoPor Usuario?       @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+  pecas     Peca[]
+  ordens    OrdemServico[]
+
+  @@index([clienteId])
+  @@index([status])
+}
+
+model Peca {
+  id         String  @id @default(uuid()) @db.Uuid
+  projetoId  String  @db.Uuid
+  chapaId    String  @db.Uuid
+  nome       String  @db.VarChar(80) /// Porta, Lateral Esquerda, Prateleira, Fundo, Base...
+  larguraMm  Int
+  alturaMm   Int
+  quantidade Int     @default(1)
+  veio       Boolean @default(false)
+
+  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  chapa   Chapa   @relation(fields: [chapaId], references: [id], onDelete: Restrict)
+
+  @@index([projetoId])
+  @@index([chapaId])
+}
+
+// ───────────────────────── Ordens de serviço (Módulo C) ─────────────────────────
+
+model OrdemServico {
+  id               String             @id @default(uuid()) @db.Uuid
+  numero           Int                @unique @default(autoincrement()) /// exibido como OS-101
+  clienteId        String             @db.Uuid
+  projetoId        String?            @db.Uuid
+  responsavelId    String?            @db.Uuid
+  ambiente         String             @db.VarChar(80)
+  descricao        String?
+  status           StatusOS           @default(ORCAMENTO)
+  prioridade       PrioridadeOS       @default(NORMAL)
+  dataOrcamento    DateTime           @default(now())
+  dataAprovacao    DateTime?
+  dataMedicao      DateTime?
+  prazoAcordado    DateTime? /// data de entrega combinada com o cliente
+  prazoReal        DateTime? /// data em que a entrega de fato ocorreu
+  valorTotal       Decimal            @default(0) @db.Decimal(12, 2)
+  valorEntrada     Decimal            @default(0) @db.Decimal(12, 2) /// padrão 50% do total
+  valorRecebido    Decimal            @default(0) @db.Decimal(12, 2)
+  statusFinanceiro StatusFinanceiroOS @default(PENDENTE)
+  /// Materiais vinculados: snapshot do cálculo de chapas (lista de compra, aproveitamento)
+  materiais        Json?
+  fotosAntes       String[]           @default([])
+  fotosDepois      String[]           @default([])
+  criadoEm         DateTime           @default(now())
+  atualizadoEm     DateTime           @updatedAt
+  deletadoEm       DateTime?
+
+  cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  projeto     Projeto?           @relation(fields: [projetoId], references: [id], onDelete: SetNull)
+  responsavel Usuario?           @relation("ResponsavelOS", fields: [responsavelId], references: [id], onDelete: SetNull)
+  historico   HistoricoEtapa[]
+  pagamentos  Pagamento[]
+  mensagens   MensagemWhatsapp[]
+  medicoes    Medicao[]
+
+  @@index([status, prioridade])
+  @@index([prazoAcordado])
+  @@index([clienteId])
+  @@index([responsavelId])
+  @@index([deletadoEm])
+}
+
+model HistoricoEtapa {
+  id             String    @id @default(uuid()) @db.Uuid
+  ordemServicoId String    @db.Uuid
+  de             StatusOS?
+  para           StatusOS
+  entrouEm       DateTime  @default(now())
+  saiuEm         DateTime?
+  usuarioId      String?   @db.Uuid
+  observacao     String?
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id], onDelete: Cascade)
+  usuario      Usuario?     @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([ordemServicoId, entrouEm])
+}
+
+model Pagamento {
+  id             String          @id @default(uuid()) @db.Uuid
+  ordemServicoId String          @db.Uuid
+  tipo           TipoPagamento
+  forma          FormaPagamento
+  valor          Decimal         @db.Decimal(12, 2)
+  parcelas       Int             @default(1)
+  status         StatusPagamento @default(PENDENTE)
+  vencimento     DateTime?
+  pagoEm         DateTime?
+  observacao     String?
+  registradoPor  String?         @db.Uuid
+  criadoEm       DateTime        @default(now())
+  atualizadoEm   DateTime        @updatedAt
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id], onDelete: Restrict)
+  usuario      Usuario?     @relation(fields: [registradoPor], references: [id], onDelete: SetNull)
+
+  @@index([ordemServicoId])
+  @@index([status, vencimento])
+  @@index([pagoEm])
+}
+
+// ───────────────────────── WhatsApp (Módulo G) ─────────────────────────
+
+model MensagemWhatsapp {
+  id             String          @id @default(uuid()) @db.Uuid
+  ordemServicoId String?         @db.Uuid
+  clienteId      String?         @db.Uuid
+  leadB2BId      String?         @db.Uuid
+  usuarioId      String?         @db.Uuid
+  telefone       String          @db.VarChar(20)
+  mensagem       String
+  link           String?
+  direcao        DirecaoMensagem @default(ENVIADA)
+  canal          CanalWhatsapp   @default(LINK_WA_ME)
+  status         StatusMensagem  @default(GERADA)
+  contexto       String?         @db.VarChar(30) /// OS, CLIENTE, LEAD_B2B, PROJETO, ORCAMENTO
+  criadoEm       DateTime        @default(now())
+
+  ordemServico OrdemServico? @relation(fields: [ordemServicoId], references: [id], onDelete: SetNull)
+  cliente      Cliente?      @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  leadB2B      LeadB2B?      @relation(fields: [leadB2BId], references: [id], onDelete: SetNull)
+  usuario      Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([ordemServicoId, criadoEm])
+  @@index([clienteId, criadoEm])
+  @@index([leadB2BId])
+}
+
+// ───────────────────────── Catálogo (Módulo A) ─────────────────────────
+
+model Colecao {
+  id             String   @id @default(uuid()) @db.Uuid
+  slug           String   @unique @db.VarChar(60)
+  nome           String   @db.VarChar(80)
+  descricao      String
+  materiais      String[]
+  precoAPartirDe Decimal  @db.Decimal(12, 2)
+  publicoAlvo    String?  @db.VarChar(160)
+  estilos        String[] @default([]) /// usado pelo quiz: MODERNO, CLASSICO, MINIMALISTA
+  destaque       Boolean  @default(false)
+  ordem          Int      @default(0)
+  ativo          Boolean  @default(true)
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
+  modelos Modelo[]
+}
+
+model Modelo {
+  id                   String   @id @default(uuid()) @db.Uuid
+  slug                 String   @unique @db.VarChar(80)
+  nome                 String   @db.VarChar(120)
+  ambiente             String   @db.VarChar(60)
+  areaM2               Decimal? @db.Decimal(6, 2)
+  materiais            String
+  descricao            String?
+  inclui               String[] @default([])
+  preco                Decimal? @db.Decimal(12, 2) /// null = sob consulta
+  sobConsulta          Boolean  @default(false)
+  prazoProducaoMinDias Int      @default(15)
+  prazoProducaoMaxDias Int      @default(25)
+  fotos                String[] @default([])
+  colecaoId            String?  @db.Uuid
+  ordem                Int      @default(0)
+  ativo                Boolean  @default(true)
+  criadoEm             DateTime @default(now())
+  atualizadoEm         DateTime @updatedAt
+
+  colecao  Colecao?    @relation(fields: [colecaoId], references: [id], onDelete: SetNull)
+  combos   ComboItem[]
+  projetos Projeto[]
+
+  @@index([ambiente])
+  @@index([colecaoId])
+}
+
+model Combo {
+  id                  String   @id @default(uuid()) @db.Uuid
+  slug                String   @unique @db.VarChar(60)
+  nome                String   @db.VarChar(120)
+  descricao           String?
+  preco               Decimal? @db.Decimal(12, 2) /// null = preço calculado (ex.: desconto progressivo)
+  descontoProgressivo Json? /// [{ minUnidades, descontoPct }]
+  ativo               Boolean  @default(true)
+  criadoEm            DateTime @default(now())
+  atualizadoEm        DateTime @updatedAt
+
+  itens ComboItem[]
+}
+
+model ComboItem {
+  comboId    String @db.Uuid
+  modeloId   String @db.Uuid
+  quantidade Int    @default(1)
+
+  combo  Combo  @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  modelo Modelo @relation(fields: [modeloId], references: [id], onDelete: Restrict)
+
+  @@id([comboId, modeloId])
+}
+
+// ───────────────────────── B2B (Módulo F) ─────────────────────────
+
+model LeadB2B {
+  id                String         @id @default(uuid()) @db.Uuid
+  tipo              TipoEmpresaB2B
+  nomeEmpresa       String         @db.VarChar(150)
+  cnpj              String         @db.VarChar(14) /// somente dígitos
+  responsavel       String         @db.VarChar(120)
+  whatsapp          String         @db.VarChar(20)
+  email             String?        @db.VarChar(180)
+  unidades          Int
+  prazoDesejado     String?        @db.VarChar(60)
+  bairro            String?        @db.VarChar(80)
+  orcamentoEstimado Decimal?       @db.Decimal(12, 2)
+  precisaMedicao    Boolean        @default(false)
+  mensagem          String?
+  status            StatusLeadB2B  @default(NOVO)
+  consentimentoLgpd Boolean        @default(false)
+  origem            String         @default("site/empresas") @db.VarChar(60)
+  responsavelId     String?        @db.Uuid
+  criadoEm          DateTime       @default(now())
+  atualizadoEm      DateTime       @updatedAt
+  deletadoEm        DateTime?
+
+  responsavelInterno Usuario?           @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+  mensagens          MensagemWhatsapp[]
+
+  @@index([status])
+  @@index([cnpj])
+  @@index([criadoEm])
+}
+
+// ───────────────────────── Portfólio (Módulo E) ─────────────────────────
+
+model ObraPortfolio {
+  id           String      @id @default(uuid()) @db.Uuid
+  slug         String      @unique @db.VarChar(80)
+  titulo       String      @db.VarChar(150)
+  bairro       String?     @db.VarChar(80)
+  tipoCliente  TipoCliente @default(RESIDENCIAL)
+  desafio      String?
+  solucao      String?
+  materiais    String[]    @default([])
+  /// "Como fiz" em 6 etapas: [{ ordem, titulo, descricao, fotos[] }]
+  etapas       Json        @default("[]")
+  fotos        String[]    @default([])
+  depoimento   String?
+  publicado    Boolean     @default(false)
+  criadoEm     DateTime    @default(now())
+  atualizadoEm DateTime    @updatedAt
+  deletadoEm   DateTime?
+
+  @@index([publicado])
+  @@index([tipoCliente])
+}
+
+// ───────────────────────── Auditoria ─────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  usuarioId  String?  @db.Uuid
+  acao       String   @db.VarChar(60) /// ex.: LOGIN_FALHA, OS_AVANCAR_ETAPA, PAGAMENTO_CONFIRMAR
+  entidade   String   @db.VarChar(60)
+  entidadeId String?  @db.VarChar(64)
+  dados      Json?
+  ip         String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(255)
+  criadoEm   DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([entidade, entidadeId])
+  @@index([usuarioId, criadoEm])
+  @@index([criadoEm])
+}
+
+// ───────────────────────── Medição na obra (PWA offline — RNF03) ─────────────────────────
+
+model Medicao {
+  id             String   @id @default(uuid()) @db.Uuid
+  /// Identificador gerado no celular (offline) — garante idempotência na sincronização
+  idLocal        String   @unique @db.VarChar(64)
+  ordemServicoId String   @db.Uuid
+  usuarioId      String?  @db.Uuid
+  ambiente       String   @db.VarChar(80)
+  /// [{ nome, larguraMm, alturaMm }]
+  paredes        Json     @default("[]")
+  observacoes    String?
+  /// Chaves dos arquivos no armazenamento (local ou S3)
+  fotos          String[] @default([])
+  /// Momento da medição no aparelho (pode ser anterior à sincronização)
+  medidoEm       DateTime
+  criadoEm       DateTime @default(now())
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id], onDelete: Cascade)
+  usuario      Usuario?     @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([ordemServicoId, medidoEm])
+}
